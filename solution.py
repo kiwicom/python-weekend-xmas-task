@@ -1,5 +1,6 @@
 import csv
 import datetime as dt
+import json
 
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -7,23 +8,34 @@ from copy import deepcopy
 
 class TripFinder:
     def __init__(self) -> None:
-        cmd_line_args = (
-            self._command_line_argumnet_parser()
-        )  # Read command line arguments
+        # Datetime format
+        self._datetime_format = '%Y-%m-%dT%H:%M:%S'
+
+        # Read command line arguments
+        cmd_line_args = self._command_line_argumnet_parser()
         self.csv_file_name = cmd_line_args['csv_file_name']
         self.trip_origin = cmd_line_args['trip_origin']
         self.trip_destination = cmd_line_args['trip_destination']
         self.bags = cmd_line_args['bags']
         self.stops = cmd_line_args['stops']
         self.return_trip = cmd_line_args['return_trip']
-        self.flights = []
+
+        # Read csv file with flights
+        self.flights = self._csv_input_reader()
+
+        # Store (semi)results
         self.trips = []
         self.results = []
-        self._datetime_format = '%Y-%m-%dT%H:%M:%S'
-        self._input_reader()  # Read csv file
 
     def _command_line_argumnet_parser(self) -> dict:
-        # python -m solution example/example0.csv RFZ WIW --bags=1 --return
+        """
+        Parse command line arguments.
+
+        Example:
+        --------
+        python -m solution example/example0.csv RFZ WIW --bags=1 --stops=1 --return
+        """
+
         parser = ArgumentParser(description='Process command line params')
         parser.add_argument('csv_file_name', help='Name of the input csv file')
         parser.add_argument('trip_origin', help='Trip origin')
@@ -46,15 +58,18 @@ class TripFinder:
             '--return',
             action='store_true',
             required=False,
-            help='Return flight',
-            dest='return_flight',
+            help='Return trip',
+            dest='return_trip',
         )
         args = parser.parse_args()
-        for k, v in vars(args).items():
-            print(f'{k}: {v}')
         return vars(args)
 
-    def _input_reader(self) -> None:
+    def _csv_input_reader(self) -> list:
+        """
+        Read csv input file and store it in list `flights`.
+        """
+
+        flights = []
         with open(self.csv_file_name, 'r') as csv_file:
             # Set reader
             csv_reader = csv.reader(csv_file)
@@ -73,7 +88,7 @@ class TripFinder:
                 bag_price = float(row[6])
                 bags_allowed = int(row[7])
 
-                self.flights.append(
+                flights.append(
                     {
                         'flight_no': flight_no,
                         'origin': origin,
@@ -86,15 +101,22 @@ class TripFinder:
                     }
                 )
 
+        return flights
+
     def find_available_trips(self, trip: list = []) -> None:
+        """
+        Find all available trips from `trip_origin` to `trip_destination`.
+        """
+
         for flight in self.flights:
-            if trip == [] and flight['origin'] == self.trip_origin:
-                # If trip itinerary is empty and flight origin equals trip origin
-                self.find_available_trips(
-                    [
-                        flight,
-                    ]
-                )
+            if trip == []:
+                if flight['origin'] == self.trip_origin:
+                    # If trip itinerary is empty and flight origin equals trip origin
+                    self.find_available_trips(
+                        [
+                            flight,
+                        ]
+                    )
 
             elif trip[-1]['destination'] == self.trip_destination:
                 self.trips.append(deepcopy(trip))
@@ -113,14 +135,6 @@ class TripFinder:
                         flight,
                     ]
                 )
-
-    def print_trip_parameters(self) -> None:
-        print()
-        print(' -- Print Trip Params')
-        print(f'Available Flights: {len(self.flights)}')
-        print(f'Trip Origin: {self.trip_origin}')
-        print(f'Trip Destination: {self.trip_destination}')
-        print(f'Bags count: {self.bags}')
 
     def format_results(self) -> None:
         """
@@ -177,6 +191,5 @@ tf = TripFinder()
 tf.find_available_trips()
 tf.format_results()
 
-# print(json.dumps(tf.results, indent=4))
-tf.print_trip_parameters()
-# print(tf.__dict__)
+# Print results
+print(json.dumps(tf.results, indent=4))

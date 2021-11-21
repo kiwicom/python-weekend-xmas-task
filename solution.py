@@ -27,6 +27,20 @@ class TripFinder:
         self.trips = []
         self.results = []
 
+    def __call__(self) -> list:
+
+        # One-way trip
+        if not self.return_trip:
+            pass
+        # Return trip
+        else:
+            pass
+
+        self._find_available_trips(self.trip_origin, self.trip_destination)
+        self._format_results()
+
+        return self.results
+
     def _command_line_argumnet_parser(self) -> dict:
         """
         Parse command line arguments.
@@ -103,40 +117,46 @@ class TripFinder:
 
         return flights
 
-    def find_available_trips(self, trip: list = []) -> None:
+    def _find_available_trips(
+        self, trip_origin: str, trip_destination: str, trip: list = []
+    ) -> None:
         """
         Find all available trips from `trip_origin` to `trip_destination`.
         """
 
+        LAYOVER_LIMIT_SECONDS_MIN = 60 * 60
+        LAYOVER_LIMIT_SECONDS_MAX = 6 * 60 * 60
+
         for flight in self.flights:
+            # Trip itinerary is empty
             if trip == []:
-                if flight['origin'] == self.trip_origin:
-                    # If trip itinerary is empty and flight origin equals trip origin
-                    self.find_available_trips(
-                        [
-                            flight,
-                        ]
+                # Flight origin equals trip origin
+                if flight['origin'] == trip_origin:
+                    # Save the flight and continue searching
+                    self._find_available_trips(
+                        trip_origin, trip_destination, [flight]
                     )
 
-            elif trip[-1]['destination'] == self.trip_destination:
+            # Previous flight destination equals trip destination
+            elif trip[-1]['destination'] == trip_destination:
+                # Save the trip and stop searching
                 self.trips.append(deepcopy(trip))
                 break
 
+            # Connecting flight after valid layover (stop)
             elif (
                 len(trip) - 1 < self.stops
                 and trip[-1]['destination'] == flight['origin']
-                and 60 * 60
+                and LAYOVER_LIMIT_SECONDS_MIN
                 <= (flight['departure'] - trip[-1]['arrival']).total_seconds()
-                <= 6 * 60 * 60
+                <= LAYOVER_LIMIT_SECONDS_MAX
             ):
-                self.find_available_trips(
-                    trip
-                    + [
-                        flight,
-                    ]
+                # Save the flight and continue searching
+                self._find_available_trips(
+                    trip_origin, trip_destination, trip + [flight]
                 )
 
-    def format_results(self) -> None:
+    def _format_results(self) -> None:
         """
         Compute summary statistics, format result in predefined form and sort results on `total_price`.
         """
@@ -187,9 +207,9 @@ class TripFinder:
         )
 
 
-tf = TripFinder()
-tf.find_available_trips()
-tf.format_results()
+if __name__ == '__main__':
+    tf = TripFinder()
+    trips = tf()
 
-# Print results
-print(json.dumps(tf.results, indent=4))
+    # Print results
+    print(json.dumps(trips, indent=4))
